@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 options(scipen=999)
+options(digit=3)
 ```
 
 
@@ -20,8 +21,12 @@ pacman::p_load(data.table, forecast, leaps, tidyverse, caret, corrplot, glmnet, 
 ```{r dataloading, echo=FALSE}
 setwd('D:/First Semester - MSBA - UTD/Kaggle Datasets for Practice/breast-cancer-wisconsin-data')
 cancer.df <- read.csv("breast-cancer-data.csv")
-head(cancer.df)
+cancer.meta <- cancer.df[c(2:32)]
 str(cancer.df)
+head(cancer.meta)
+```
+
+```{r data-transformation}
 ##
 ## Now, let's convert the character valued categorical variable Diagnosis to numeric categorical variable.
 ##
@@ -30,12 +35,25 @@ cancer.df$diagnosis <- as.factor(cancer.df$diagnosis)
 ##
 ## Since, the column X doesn't contain any value for every record, we are dropping the column.
 ##
-cancer.df <- cancer.df[c(1:32)]
+cancer.df <- cancer.df[c(2:32)]
 ##
 table(is.na(cancer.df))
 ##
 summary(cancer.df)
+head(cancer.df)
 ```
+
+
+```{r groupby-diagnosis}
+cd <- cancer.meta %>%
+group_by(diagnosis) %>%
+summarise(radius_mean = mean(radius_mean), texture_mean = mean(texture_mean), perimeter_mean = mean(perimeter_mean), area_mean = mean(area_mean), smoothness_mean = mean(smoothness_mean), compactness_mean = mean(compactness_mean), concavity_mean = mean(concavity_mean), concave.points_mean = mean(concave.points_mean), symmetry_mean = mean(symmetry_mean), fractal_dimension_mean = mean(fractal_dimension_mean))
+cd
+
+```
+
+
+
 
 ```{r visualglance}
 ##
@@ -43,62 +61,181 @@ summary(cancer.df)
 ##
 prop.table(table(cancer.df$diagnosis))
 
-hist(as.numeric(cancer.df$diagnosis), col = plasma(20), border='black', main = 'Number of observations under each category.'
+hist(as.numeric(cancer.df$diagnosis), col = plasma(20), border='black', main = 'Number of observations under each category.' 
      , xlab = 'Numeric representation of each Category', ylab = 'Number of records')
-##
-## So, overlall there are good number of data under each category.
-##
-plot(cancer.df$fractal_dimension_se, cancer.df$compactness_se, main = 'Scatter Plot for Correlation of Fractal Dimension and Compactness', xlab = 'Fractal Dimension', ylab = 'Compactness', col=factor(cancer.df$diagnosis), pch=18)
-abline(lm(cancer.df$compactness_se ~ cancer.df$fractal_dimension_se))
+
+corrplot(cor(cancer.df[c(-1)]), method = "color", type = "lower", order = "hclust", tl.srt = 45)
+
+heatmap.2(cor(cancer.df[c(-1)]), col=brewer.pal(n = 9, "YlOrRd"), cellnote = round(cor(cancer.df[c(-1)]),2), dendrogram = "none",
+           key = FALSE, trace = "none", margins = c(10,10), notecol = "black")
+
+
 
 ##
 ## Now, let's see how the variables are correlated.
 ##
-corrplot(cor(cancer.df[c(-2)]), method = "color", type = "lower", order = "hclust", tl.srt = 45)
-
-heatmap.2(cor(cancer.df[c(-2)]), col=brewer.pal(n = 9, "YlOrRd"), cellnote = round(cor(cancer.df[c(-2)]),2), dendrogram = "none",
-           key = FALSE, trace = "none", margins = c(10,10), notecol = "black")
-
-a <- ggplot(cancer.df, aes(x=diagnosis, y=radius_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Radius_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Radius Mean') + scale_fill_brewer(palette = "Dark2")
-
-b <- ggplot(cancer.df, aes(x=diagnosis, y=texture_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Texture_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Texture Mean') + scale_fill_brewer(palette = "Dark2")
-
-c <- ggplot(cancer.df, aes(x=diagnosis, y=perimeter_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Perimeter_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Perimeter Mean') + scale_fill_brewer(palette = "Dark2")
-
-d <- ggplot(cancer.df, aes(x=diagnosis, y=area_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Area_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Area Mean') + scale_fill_brewer(palette = "Dark2")
-
-e <- ggplot(cancer.df, aes(x=diagnosis, y=smoothness_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Smoothness_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Smoothness Mean') + scale_fill_brewer(palette = "Dark2")
-
-f <- ggplot(cancer.df, aes(x=diagnosis, y=compactness_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Compactness_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Compactness Mean') + scale_fill_brewer(palette = "Dark2")
-
-g <- ggplot(cancer.df, aes(x=diagnosis, y=concavity_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Concavity_Mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Concavity Mean') + scale_fill_brewer(palette = "Dark2")
-
-h <- ggplot(cancer.df, aes(x=diagnosis, y=concave.points_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Concave points_mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Concave points_Mean') + scale_fill_brewer(palette = "Dark2")
-
-i <- ggplot(cancer.df, aes(x=diagnosis, y=symmetry_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for symmetry_mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Symmetry_Mean') + scale_fill_brewer(palette = "Dark2")
-
-j <- ggplot(cancer.df, aes(x=diagnosis, y=fractal_dimension_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Fractal_dimension_mean field based on diagnosis class.", x = 'Diagnosis class', y = 'Fractal_dimension_mean') + scale_fill_brewer(palette = "Dark2")
-
-k <- ggplot(cancer.df, aes(x=diagnosis, y=radius_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Radius_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Radius_se') + scale_fill_brewer(palette = "Dark2")
-
-l <- ggplot(cancer.df, aes(x=diagnosis, y=texture_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Texture_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Texture_se') + scale_fill_brewer(palette = "Dark2")
-
-m <- ggplot(cancer.df, aes(x=diagnosis, y=perimeter_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3) + labs(title="Box-Plot distribution for Perimeter_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Perimeter_se') + scale_fill_brewer(palette = "Dark2")
-
-n <- ggplot(cancer.df, aes(x=diagnosis, y=area_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Area_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Area_se') + scale_fill_brewer(palette = "Dark2")
-
-o <- ggplot(cancer.df, aes(x=diagnosis, y=smoothness_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Smoothness_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Smoothness_se') + scale_fill_brewer(palette = "Dark2")
-
-p <- ggplot(cancer.df, aes(x=diagnosis, y=compactness_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Compactness_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Compactness_se') + scale_fill_brewer(palette = "Dark2")
-
-q <- ggplot(cancer.df, aes(x=diagnosis, y=concavity_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Concavity_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Concavity_se') + scale_fill_brewer(palette = "Dark2")
-
-r <- ggplot(cancer.df, aes(x=diagnosis, y=concave.points_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Box-Plot distribution for Concave.points_se field based on diagnosis class.", x = 'Diagnosis class', y = 'Concave.points_se') + scale_fill_brewer(palette = "Dark2")
+a <- ggplot(cancer.df, aes(x=diagnosis, y=radius_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Radius_Mean by diagnosis class.", x = 'Diagnosis class', y = 'Radius Mean') + scale_fill_brewer(palette = "Dark2")
 
 
-ggarrange(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r + rremove("x.text"), labels = c("A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R"), ncols = 1, nrow = 18)
+b <- ggplot(cancer.df, aes(x=diagnosis, y=texture_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Texture_Mean by diagnosis class.", x = 'Diagnosis class', y = 'Texture Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+c <- ggplot(cancer.df, aes(x=diagnosis, y=perimeter_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Perimeter_Mean by diagnosis class.", x = 'Diagnosis class', y = 'Perimeter Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+d <- ggplot(cancer.df, aes(x=diagnosis, y=area_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Area_Mean field by diagnosis class.", x = 'Diagnosis class', y = 'Area Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+e <- ggplot(cancer.df, aes(x=diagnosis, y=smoothness_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Smoothness_Mean by diagnosis class.", x = 'Diagnosis class', y = 'Smoothness Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+f <- ggplot(cancer.df, aes(x=diagnosis, y=compactness_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Compactness_Mean by diagnosis class.", x = 'Diagnosis class', y = 'Compactness Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+g <- ggplot(cancer.df, aes(x=diagnosis, y=concavity_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Concavity_Mean by diagnosis class.", x = 'Diagnosis class', y = 'Concavity Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+h <- ggplot(cancer.df, aes(x=diagnosis, y=concave.points_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Concave points_mean by diagnosis class.", x = 'Diagnosis class', y = 'Concave points_Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+i <- ggplot(cancer.df, aes(x=diagnosis, y=symmetry_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Symmetry_mean field by diagnosis class.", x = 'Diagnosis class', y = 'Symmetry_Mean') + scale_fill_brewer(palette = "Dark2")
+
+
+j <- ggplot(cancer.df, aes(x=diagnosis, y=fractal_dimension_mean, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Fractal_dimension_mean by diagnosis class.", x = 'Diagnosis class', y = 'Fractal_dimension_mean') + scale_fill_brewer(palette = "Dark2")
+
+
+k <- ggplot(cancer.df, aes(x=diagnosis, y=radius_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Radius_se field by diagnosis class.", x = 'Diagnosis class', y = 'Radius_se') + scale_fill_brewer(palette = "Dark2")
+
+
+l <- ggplot(cancer.df, aes(x=diagnosis, y=texture_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Texture_se field by diagnosis class.", x = 'Diagnosis class', y = 'Texture_se') + scale_fill_brewer(palette = "Dark2")
+
+
+m <- ggplot(cancer.df, aes(x=diagnosis, y=perimeter_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3) + labs(title="Perimeter_se by diagnosis class.", x = 'Diagnosis class', y = 'Perimeter_se') + scale_fill_brewer(palette = "Dark2")
+
+
+n <- ggplot(cancer.df, aes(x=diagnosis, y=area_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Area_se field by diagnosis class.", x = 'Diagnosis class', y = 'Area_se') + scale_fill_brewer(palette = "Dark2")
+
+
+o <- ggplot(cancer.df, aes(x=diagnosis, y=smoothness_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Smoothness_se by diagnosis class.", x = 'Diagnosis class', y = 'Smoothness_se') + scale_fill_brewer(palette = "Dark2")
+
+
+p <- ggplot(cancer.df, aes(x=diagnosis, y=compactness_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Compactness_se by diagnosis class.", x = 'Diagnosis class', y = 'Compactness_se') + scale_fill_brewer(palette = "Dark2")
+
+
+q <- ggplot(cancer.df, aes(x=diagnosis, y=concavity_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Concavity_se by diagnosis class.", x = 'Diagnosis class', y = 'Concavity_se') + scale_fill_brewer(palette = "Dark2")
+
+
+r <- ggplot(cancer.df, aes(x=diagnosis, y=concave.points_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Concave.points_se by diagnosis class.", x = 'Diagnosis class', y = 'Concave.points_se') + scale_fill_brewer(palette = "Dark2")
+
+s <- ggplot(cancer.df, aes(x=diagnosis, y=symmetry_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Symmetry_se field by diagnosis class.", x = 'Diagnosis class', y = 'symmetry_se') + scale_fill_brewer(palette = "Dark2")
+
+t <- ggplot(cancer.df, aes(x=diagnosis, y=fractal_dimension_se, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Fractal_dimension_se by diagnosis class.", x = 'Diagnosis class', y = 'fractal_dimension_se') + scale_fill_brewer(palette = "Dark2")
+
+u <- ggplot(cancer.df, aes(x=diagnosis, y=radius_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Radius_worst by diagnosis class.", x = 'Diagnosis class', y = 'radius_worst') + scale_fill_brewer(palette = "Dark2")
+
+v <- ggplot(cancer.df, aes(x=diagnosis, y=texture_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Texture_worst by diagnosis class.", x = 'Diagnosis class', y = 'texture_worst') + scale_fill_brewer(palette = "Dark2")
+
+w <- ggplot(cancer.df, aes(x=diagnosis, y=perimeter_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Perimeter_worst by diagnosis class.", x = 'Diagnosis class', y = 'perimeter_worst') + scale_fill_brewer(palette = "Dark2")
+
+x <- ggplot(cancer.df, aes(x=diagnosis, y=area_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Area_worst by diagnosis class.", x = 'Diagnosis class', y = 'area_worst') + scale_fill_brewer(palette = "Dark2")
+
+y <- ggplot(cancer.df, aes(x=diagnosis, y=smoothness_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Smoothness_worst by diagnosis class.", x = 'Diagnosis class', y = 'smoothness_worst') + scale_fill_brewer(palette = "Dark2")
+
+z <- ggplot(cancer.df, aes(x=diagnosis, y=compactness_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Compactness_worst by diagnosis class.", x = 'Diagnosis class', y = 'compactness_worst') + scale_fill_brewer(palette = "Dark2")
+
+a1 <- ggplot(cancer.df, aes(x=diagnosis, y=concavity_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Concavity_worst by diagnosis class.", x = 'Diagnosis class', y = 'concavity_worst') + scale_fill_brewer(palette = "Dark2")
+
+a2 <- ggplot(cancer.df, aes(x=diagnosis, y=concave.points_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Concave.points_worst by diagnosis class.", x = 'Diagnosis class', y = 'concave.points_worst') + scale_fill_brewer(palette = "Dark2")
+
+a3 <- ggplot(cancer.df, aes(x=diagnosis, y=symmetry_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Symmetry_worst by diagnosis class.", x = 'Diagnosis class', y = 'symmetry_worst') + scale_fill_brewer(palette = "Dark2")
+
+a4 <- ggplot(cancer.df, aes(x=diagnosis, y=fractal_dimension_worst, fill=diagnosis))  + geom_boxplot(alpha = 1, outlier.colour="red3", outlier.shape=16, outlier.size=2, notch=TRUE, notchwidth = 0.7, varwidth = TRUE, width=0.3, scale = "free") + labs(title="Fractal_dimension_worst by diagnosis class.", x = 'Diagnosis class', y = 'fractal_dimension_worst') + scale_fill_brewer(palette = "Dark2")
+
+
+grid.arrange(a,b,c,d,ncol=2)
+grid.arrange(e,f,g,h,ncol=2)
+grid.arrange(i,j,k,l,ncol=2)
+grid.arrange(m,n,o,p,ncol=2)
+grid.arrange(q,r,s,t,ncol=2)
+grid.arrange(u,v,w,x,ncol=2)
+grid.arrange(y,z,a1,a2,ncol=2)
+grid.arrange(a3,a4,ncol=1)
+
+##
+## So, overlall there are good number of data under each category.
+##
+par(mfrow=c(2,2))
+plot(cancer.df$compactness_worst, cancer.df$compactness_mean, main = 'Compactness Mean ~ Compactness Worst', xlab = 'Compactness Worst', ylab = 'Compactness Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$compactness_mean ~ cancer.df$compactness_worst))
+##
+##
+plot(cancer.df$concavity_mean, cancer.df$concavity_worst, main = 'Concavity Mean ~ Concavity Worst', xlab = 'Concavity Worst', ylab = 'Concavity Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concavity_worst ~ cancer.df$concavity_mean))
+##
+##
+plot(cancer.df$smoothness_worst, cancer.df$smoothness_mean, main = 'Smoothness Mean ~ Smoothness Worst', xlab = 'Smoothness Worst', ylab = 'Smoothness Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$smoothness_mean ~ cancer.df$smoothness_worst))
+##
+##
+plot(cancer.df$texture_worst, cancer.df$texture_mean, main = 'Texture Worst ~ Texture Mean', ylab = 'Texture Mean', xlab = 'Texture Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$texture_mean ~ cancer.df$texture_worst))
+##
+##
+##
+par(mfrow=c(2,2))
+plot(cancer.df$concavity_mean, cancer.df$concave.points_worst, main = 'Concave point Worst ~ Concavity Mean', xlab = 'Concavity Mean', ylab = 'Concave Point Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concave.points_worst ~ cancer.df$concavity_mean))
+##
+##
+plot(cancer.df$concavity_mean, cancer.df$concave.points_mean, main = 'Concave point Mean ~ concavity_mean', xlab = 'concavity_mean', ylab = 'Concave Point Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concave.points_mean ~ cancer.df$concavity_mean))
+##
+##
+plot(cancer.df$concave.points_worst, cancer.df$concave.points_mean, main = 'Concave point Mean ~ Concave point Worst', xlab = 'Concave point Worst', ylab = 'Concave point Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concave.points_mean ~ cancer.df$concave.points_worst))
+##
+##
+plot(cancer.df$compactness_worst, cancer.df$concave.points_worst, main = 'Compactness Worst ~ Concave Point Worst', xlab = 'Compactness Worst', ylab = 'Concave Point Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concave.points_worst ~ cancer.df$compactness_worst))
+##
+##
+par(mfrow=c(2,2))
+plot(cancer.df$compactness_mean, cancer.df$concave.points_worst, main = 'Concave point Worst ~ Compactness Mean', xlab = 'Compactness Mean', ylab = 'Concave Point Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concave.points_worst ~ cancer.df$compactness_mean))
+##
+##
+plot(cancer.df$compactness_mean, cancer.df$concave.points_mean, main = 'Concave point Mean ~ Compactness Mean', xlab = 'Compactness Mean', ylab = 'Concave Point Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concave.points_mean ~ cancer.df$compactness_mean))
+##
+##
+plot(cancer.df$concavity_worst, cancer.df$compactness_worst, main = 'Concavity Worst ~ Compactness Worst', xlab = 'Concavity Worst', ylab = 'Compactness Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$compactness_worst ~ cancer.df$concavity_worst))
+##
+##
+plot(cancer.df$concavity_se, cancer.df$compactness_se, main = 'Concavity ~ Compactness', xlab = 'Concavity', ylab = 'Compactness', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$compactness_se ~ cancer.df$concavity_se))
+##
+##
+par(mfrow=c(2,2))
+plot(cancer.df$compactness_worst, cancer.df$fractal_dimension_worst, main = 'Fractal Dimension Worst ~ Compactness Worst', xlab = 'Compactness Worst', ylab = 'Fractal Dimension Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$fractal_dimension_worst ~ cancer.df$compactness_worst))
+##
+##
+plot(cancer.df$compactness_se, cancer.df$fractal_dimension_se, main = 'Fractal Dimension ~ Compactness', ylab = 'Fractal Dimension', xlab = 'Compactness', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$fractal_dimension_se ~ cancer.df$compactness_se))
+##
+##
+plot(cancer.df$compactness_mean, cancer.df$concavity_worst, main = 'Concavity Worst ~ Compactness Mean', xlab = 'Compactness Mean', ylab = 'Concavity Worst', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concavity_worst ~ cancer.df$compactness_mean))
+##
+##
+plot(cancer.df$compactness_mean, cancer.df$concavity_mean, main = 'Concavity Mean ~ Compactness Mean', xlab = 'Compactness Mean', ylab = 'Concavity Mean', col=factor(cancer.df$diagnosis), pch=18)
+abline(lm(cancer.df$concavity_mean ~ cancer.df$compactness_mean))
+##
+##
 
 ```
+
 
 
 
